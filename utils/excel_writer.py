@@ -21,7 +21,7 @@ from openpyxl.styles import NamedStyle, Border, Side, Alignment, PatternFill, Fo
 
 class ExcelWriter:
 
-    def __init__(self, style_excel='报告输出模版.xlsx', style_sheet_name="初始化", fontsize=10, font='楷体', theme_color='2639E9'):
+    def __init__(self, style_excel='报告输出模版.xlsx', style_sheet_name="初始化", fontsize=10, font='楷体', theme_color='8E8BFE'):
         # english_width，chinese_width
         self.english_width = 0.12
         self.chinese_width = 0.21

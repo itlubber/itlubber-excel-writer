@@ -16,10 +16,12 @@ from openpyxl.formatting.rule import ColorScaleRule
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import get_column_letter, column_index_from_string
 
+
+# https://github.com/itlubber/LogisticRegressionPipeline
 sys.path.append("/Users/lubberit/Desktop/workspace/LogisticRegressionPipeline")
 
-from  model import *
 
+from model import *
 from utils.excel_writer import ExcelWriter
 
 plt.style.use('seaborn-ticks')
@@ -92,6 +94,10 @@ test["score"] = card.predict(test)
 oot["score"] = card.predict(oot)
 
 
+def float2percentage(x):
+    return '%.2f%%' % (x * 100);
+
+
 def pyplot_chinese(font_path='utils/matplot_chinese.ttf'):
     matplotlib.rcParams['font.size'] = 14
     matplotlib.font_manager.fontManager.addfont(font_path)
@@ -103,7 +109,7 @@ def sample_distribution(df, date="date", target="target", user_count="count", sa
     pyplot_chinese()
     temp = df.groupby([df[date].dt.strftime("%Y-%m"), df[target].map({0: "好样本", 1: "坏样本"})])[user_count].sum().unstack()
     fig, ax1 = plt.subplots(1, 1, figsize=(20, 12))
-    temp.plot(kind='bar', stacked=True, ax=ax1, color=["#2639E9", "#F76E6C"], hatch="/", legend=False)
+    temp.plot(kind='bar', stacked=True, ax=ax1, color=["#8E8BFE", "#FEA3A2"], hatch="/", legend=False)
     ax1.tick_params(axis='x', labelrotation=-90)
     ax1.set(xlabel=None)
     ax1.set_ylabel('样本数')
@@ -130,15 +136,15 @@ def sample_distribution(df, date="date", target="target", user_count="count", sa
 
     temp = temp.reset_index().rename(columns={"date": "日期", 0: "好样本", 1: "坏样本"})
     temp["样本总数"] = temp["坏样本"] + temp["好样本"]
-    temp["样本占比"] = temp["样本总数"] / temp["样本总数"].sum()
-    temp["好样本占比"] = temp["好样本"] / temp["好样本"].sum()
-    temp["坏样本占比"] = temp["坏样本"] / temp["坏样本"].sum()
-    temp["坏样本率"] = temp["坏样本"] / temp["样本总数"]
+    temp["样本占比"] = (temp["样本总数"] / temp["样本总数"].sum()).apply(float2percentage)
+    temp["好样本占比"] = (temp["好样本"] / temp["好样本"].sum()).apply(float2percentage)
+    temp["坏样本占比"] = (temp["坏样本"] / temp["坏样本"].sum()).apply(float2percentage)
+    temp["坏样本率"] = (temp["坏样本"] / temp["样本总数"]).apply(float2percentage)
 
     return temp[["日期", "样本总数", "样本占比", "好样本", "好样本占比", "坏样本", "坏样本占比", "坏样本率"]]
 
 
-def bin_plot(feature_table, feature="", figsize=(15, 8), colors=['#2639E9', '#F76E6C', '#FFC107'], max_len=35, save=None):
+def bin_plot(feature_table, feature="", figsize=(15, 8), colors=['#8E8BFE', '#FEA3A2', '#FFC107'], max_len=35, save=None):
     pyplot_chinese()
     feature_table = feature_table.copy()
 
@@ -186,7 +192,7 @@ def bin_plot(feature_table, feature="", figsize=(15, 8), colors=['#2639E9', '#F7
 
 
 
-writer = ExcelWriter(style_excel="./utils/报告输出模版.xlsx")
+writer = ExcelWriter(style_excel="./utils/报告输出模版.xlsx", theme_color="8E8BFE")
 
 
 # ////////////////////////////////////// 样本说明 ///////////////////////////////////// #
@@ -199,12 +205,12 @@ df = pd.DataFrame({
 total_count = len(data)
 dataset_summary = pd.DataFrame(
     [
-        ["建模样本", "2022-01-01", "2023-01-31", len(data), len(data) / total_count, data[target].sum(), data[target].sum() / len(data), ""],
-        ["训练集", "2022-01-01", "2023-12-31", len(train), len(train) / total_count, train[target].sum(), train[target].sum() / len(train), ""],
-        ["测试集", "2022-01-01", "2023-12-31", len(test), len(test) / total_count, test[target].sum(), test[target].sum() / len(test), ""],
-        ["跨时间验证集", "2023-01-01", "2023-01-31", len(oot), len(oot) / total_count, oot[target].sum(), oot[target].sum() / len(oot), ""],
+        ["建模样本", "2022-01-01", "2023-01-31", len(data), float2percentage(len(data) / total_count), data[target].sum(), float2percentage(data[target].sum() / len(data)), ""],
+        ["训练集", "2022-01-01", "2023-12-31", len(train), float2percentage(len(train) / total_count), train[target].sum(), float2percentage(train[target].sum() / len(train)), ""],
+        ["测试集", "2022-01-01", "2023-12-31", len(test), float2percentage(len(test) / total_count), test[target].sum(), float2percentage(test[target].sum() / len(test)), ""],
+        ["跨时间验证集", "2023-01-01", "2023-01-31", len(oot), float2percentage(len(oot) / total_count), oot[target].sum(), float2percentage(oot[target].sum() / len(oot)), ""],
     ],
-    columns=["数据集", "开始时间", "结素时间", "样本总数", "样本占比", "坏客户数", "坏客户占比", "备注"],
+    columns=["数据集", "开始时间", "结束时间", "样本总数", "样本占比", "坏客户数", "坏客户占比", "备注"],
 )
 
 worksheet = writer.get_sheet_by_name("汇总信息")
@@ -298,7 +304,7 @@ end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/data_corr.pn
 end_row, end_col = writer.insert_df2sheet(worksheet, data_corr.reset_index().rename(columns={"index": ""}), (end_row + 1, start_col))
 
 conditional_column = f"{get_column_letter(start_col + 1)}{end_row - len(data_corr)}:{get_column_letter(end_col - 1)}{end_row - 1}"
-worksheet.conditional_formatting.add(conditional_column, ColorScaleRule(start_type='num', start_value=-1.0, start_color='2639E9', mid_type='num', mid_value=0., mid_color='FFFFFF', end_type='num', end_value=1.0, end_color='2639E9'))
+worksheet.conditional_formatting.add(conditional_column, ColorScaleRule(start_type='num', start_value=-1.0, start_color='8E8BFE', mid_type='num', mid_value=0., mid_color='FFFFFF', end_type='num', end_value=1.0, end_color='8E8BFE'))
 
 
 # 变量分箱信息
@@ -403,7 +409,7 @@ conditional_column = get_column_letter(start_col + oot_score_rank.columns.get_lo
 writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(oot_score_rank)}', f'{conditional_column}{end_row}')
 
 
-def score_psi(expected, actual, labels=["预期", "实际"], save=None, colors=['#2639E9', '#F76E6C', '#FFC107'], figsize=(15, 8)):
+def score_psi(expected, actual, labels=["预期", "实际"], save=None, colors=['#8E8BFE', '#FEA3A2', '#FFC107'], figsize=(15, 8)):
     expected = expected.rename(columns={"分箱": "评分区间", "样本总数": f"{labels[0]}样本数", "样本占比": f"{labels[0]}样本占比", "坏样本率": f"{labels[0]}坏样本率"})
     actual = actual.rename(columns={"分箱": "评分区间", "样本总数": f"{labels[1]}样本数", "样本占比": f"{labels[1]}样本占比", "坏样本率": f"{labels[1]}坏样本率"})
     df_psi = expected.merge(actual, on="评分区间", how="outer").replace(np.nan, 0)
