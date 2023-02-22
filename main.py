@@ -16,17 +16,26 @@ from openpyxl.formatting.rule import ColorScaleRule
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import get_column_letter, column_index_from_string
 
-
 # https://github.com/itlubber/LogisticRegressionPipeline
 sys.path.append("/Users/lubberit/Desktop/workspace/LogisticRegressionPipeline")
-
 
 from model import *
 from utils.excel_writer import ExcelWriter
 
+
 plt.style.use('seaborn-ticks')
 # plt.style.use('seaborn-white')
-plt.rcParams.update({'font.size': 14})
+# plt.rcParams.update({'font.size': 14})
+
+
+def pyplot_chinese(font_path='utils/matplot_chinese.ttf'):
+    # matplotlib.rcParams['font.size'] = 20
+    matplotlib.font_manager.fontManager.addfont(font_path)
+    matplotlib.rcParams['font.family'] = font_manager.FontProperties(fname=font_path).get_name()
+    matplotlib.rcParams['axes.unicode_minus']=False
+
+
+pyplot_chinese(font_path='utils/杨任东竹石体-Medium.ttf')
 
 
 target = "creditability"
@@ -67,9 +76,9 @@ y_pred_train = logistic.predict_proba(woe_train.drop(columns=target))[:, 1]
 y_pred_test = logistic.predict_proba(woe_test.drop(columns=target))[:, 1]
 y_pred_oot = logistic.predict_proba(woe_oot.drop(columns=target))[:, 1]
 
-ScoreCard.ks_plot(y_pred_train, train[target], save="model_report/lr_ksplot_train.png")
-ScoreCard.ks_plot(y_pred_test, test[target], save="model_report/lr_ksplot_test.png")
-ScoreCard.ks_plot(y_pred_oot, oot[target], save="model_report/lr_ksplot_oot.png")
+ScoreCard.ks_plot(y_pred_train, train[target], save="model_report/lr_ksplot_train.png", figsize=(10, 5))
+ScoreCard.ks_plot(y_pred_test, test[target], save="model_report/lr_ksplot_test.png", figsize=(10, 5))
+ScoreCard.ks_plot(y_pred_oot, oot[target], save="model_report/lr_ksplot_oot.png", figsize=(10, 5))
 
 summary = logistic.summary().reset_index().rename(columns={"index": "Features"})
 
@@ -98,17 +107,9 @@ def float2percentage(x):
     return '%.2f%%' % (x * 100);
 
 
-def pyplot_chinese(font_path='utils/matplot_chinese.ttf'):
-    matplotlib.rcParams['font.size'] = 14
-    matplotlib.font_manager.fontManager.addfont(font_path)
-    matplotlib.rcParams['font.family'] = font_manager.FontProperties(fname=font_path).get_name()
-    matplotlib.rcParams['axes.unicode_minus']=False
-
-
-def sample_distribution(df, date="date", target="target", user_count="count", save="model_report/sample_time_count.png"):
-    pyplot_chinese()
+def sample_distribution(df, date="date", target="target", user_count="count", save="model_report/sample_time_count.png", figsize=(10, 6)):
     temp = df.groupby([df[date].dt.strftime("%Y-%m"), df[target].map({0: "好样本", 1: "坏样本"})])[user_count].sum().unstack()
-    fig, ax1 = plt.subplots(1, 1, figsize=(20, 12))
+    fig, ax1 = plt.subplots(1, 1, figsize=figsize)
     temp.plot(kind='bar', stacked=True, ax=ax1, color=["#8E8BFE", "#FEA3A2"], hatch="/", legend=False)
     ax1.tick_params(axis='x', labelrotation=-90)
     ax1.set(xlabel=None)
@@ -116,13 +117,13 @@ def sample_distribution(df, date="date", target="target", user_count="count", sa
     ax1.set_title('不同时点数据集样本分布情况\n\n')
 
     ax2 = plt.twinx()
-    (temp["坏样本"] / temp.sum(axis=1)).plot(ax=ax2, color="#FFC107", marker=".", linewidth=2, label="坏样本率")
+    (temp["坏样本"] / temp.sum(axis=1)).plot(ax=ax2, color="#9394E7", marker=".", linewidth=2, label="坏样本率")
     # sns.despine()
 
     # 合并图例
     handles1, labels1 = ax1.get_legend_handles_labels()
     handles2, labels2 = ax2.get_legend_handles_labels()
-    fig.legend(handles1 + handles2, labels1 + labels2, loc='upper center', ncol=len(labels1 + labels2), bbox_to_anchor=(0.5, 0.925), frameon=False)
+    fig.legend(handles1 + handles2, labels1 + labels2, loc='upper center', ncol=len(labels1 + labels2), bbox_to_anchor=(0.5, 0.94), frameon=False)
     # ax1.legend(frameon=False, labels=["good", "bad"], loc='upper right')
     # ax2.legend(loc='upper left', frameon=False, labels=["bad rate"])
 
@@ -136,16 +137,15 @@ def sample_distribution(df, date="date", target="target", user_count="count", sa
 
     temp = temp.reset_index().rename(columns={"date": "日期", 0: "好样本", 1: "坏样本"})
     temp["样本总数"] = temp["坏样本"] + temp["好样本"]
-    temp["样本占比"] = (temp["样本总数"] / temp["样本总数"].sum()).apply(float2percentage)
-    temp["好样本占比"] = (temp["好样本"] / temp["好样本"].sum()).apply(float2percentage)
-    temp["坏样本占比"] = (temp["坏样本"] / temp["坏样本"].sum()).apply(float2percentage)
-    temp["坏样本率"] = (temp["坏样本"] / temp["样本总数"]).apply(float2percentage)
+    temp["样本占比"] = temp["样本总数"] / temp["样本总数"].sum()
+    temp["好样本占比"] = temp["好样本"] / temp["好样本"].sum()
+    temp["坏样本占比"] = temp["坏样本"] / temp["坏样本"].sum()
+    temp["坏样本率"] = temp["坏样本"] / temp["样本总数"]
 
     return temp[["日期", "样本总数", "样本占比", "好样本", "好样本占比", "坏样本", "坏样本占比", "坏样本率"]]
 
 
-def bin_plot(feature_table, feature="", figsize=(15, 8), colors=['#8E8BFE', '#FEA3A2', '#FFC107'], max_len=35, save=None):
-    pyplot_chinese()
+def bin_plot(feature_table, feature="", figsize=(15, 8), colors=['#8E8BFE', '#FEA3A2', '#9394E7'], max_len=35, save=None):
     feature_table = feature_table.copy()
 
     feature_table["分箱"] = feature_table["分箱"].apply(lambda x: x if re.match("^\[.*\)$", x) else str(x)[:max_len] + "..")
@@ -189,9 +189,6 @@ def bin_plot(feature_table, feature="", figsize=(15, 8), colors=['#8E8BFE', '#FE
         fig.savefig(save, dpi=240, format="png", bbox_inches="tight")
 
 
-
-
-
 writer = ExcelWriter(style_excel="./utils/报告输出模版.xlsx", theme_color="8E8BFE")
 
 
@@ -205,10 +202,10 @@ df = pd.DataFrame({
 total_count = len(data)
 dataset_summary = pd.DataFrame(
     [
-        ["建模样本", "2022-01-01", "2023-01-31", len(data), float2percentage(len(data) / total_count), data[target].sum(), float2percentage(data[target].sum() / len(data)), ""],
-        ["训练集", "2022-01-01", "2023-12-31", len(train), float2percentage(len(train) / total_count), train[target].sum(), float2percentage(train[target].sum() / len(train)), ""],
-        ["测试集", "2022-01-01", "2023-12-31", len(test), float2percentage(len(test) / total_count), test[target].sum(), float2percentage(test[target].sum() / len(test)), ""],
-        ["跨时间验证集", "2023-01-01", "2023-01-31", len(oot), float2percentage(len(oot) / total_count), oot[target].sum(), float2percentage(oot[target].sum() / len(oot)), ""],
+        ["建模样本", "2022-01-01", "2023-01-31", len(data), len(data) / total_count, data[target].sum(), data[target].sum() / len(data), ""],
+        ["训练集", "2022-01-01", "2023-12-31", len(train), len(train) / total_count, train[target].sum(), train[target].sum() / len(train), ""],
+        ["测试集", "2022-01-01", "2023-12-31", len(test), len(test) / total_count, test[target].sum(), test[target].sum() / len(test), ""],
+        ["跨时间验证集", "2023-01-01", "2023-01-31", len(oot), len(oot) / total_count, oot[target].sum(), oot[target].sum() / len(oot), ""],
     ],
     columns=["数据集", "开始时间", "结束时间", "样本总数", "样本占比", "坏客户数", "坏客户占比", "备注"],
 )
@@ -220,11 +217,19 @@ start_row, start_col = 2, 2
 end_row, end_col = writer.insert_value2sheet(worksheet, (start_row, start_col), value="样本总体分布情况", style="header")
 end_row, end_col = writer.insert_df2sheet(worksheet, dataset_summary, (end_row + 1, start_col), header=True)
 
+writer.set_number_format(worksheet, f"{get_column_letter(end_col - 2)}{end_row - len(dataset_summary)}:{get_column_letter(end_col - 2)}{end_row}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(end_col - 4)}{end_row - len(dataset_summary)}:{get_column_letter(end_col - 4)}{end_row}", "0.00%")
+
 # 建模样本时间分布情况
 temp = sample_distribution(df, date="date", target="target", user_count="count", save="model_report/all_sample_time_count.png")
 end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col), value="建模样本时间分布情况", style="header")
 end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/all_sample_time_count.png", (end_row, start_col), figsize=(720, 370))
 end_row, end_col = writer.insert_df2sheet(worksheet, temp.T.reset_index(), (end_row, start_col), header=False)
+
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 1}:{get_column_letter(end_col)}{end_row - 1}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 2}:{get_column_letter(end_col)}{end_row - 2}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 4}:{get_column_letter(end_col)}{end_row - 4}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 6}:{get_column_letter(end_col)}{end_row - 6}", "0.00%")
 
 # 训练集样本时间分布情况
 temp = sample_distribution(df, date="date", target="target", user_count="count", save="model_report/train_sample_time_count.png")
@@ -232,17 +237,32 @@ end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col)
 end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/train_sample_time_count.png", (end_row, start_col), figsize=(720, 370))
 end_row, end_col = writer.insert_df2sheet(worksheet, temp.T.reset_index(), (end_row, start_col), header=False)
 
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 1}:{get_column_letter(end_col)}{end_row - 1}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 2}:{get_column_letter(end_col)}{end_row - 2}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 4}:{get_column_letter(end_col)}{end_row - 4}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 6}:{get_column_letter(end_col)}{end_row - 6}", "0.00%")
+
 # 测试集样本时间分布情况
 temp = sample_distribution(df, date="date", target="target", user_count="count", save="model_report/test_sample_time_count.png")
 end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col), value="测试集样本时间分布情况", style="header")
 end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/test_sample_time_count.png", (end_row, start_col), figsize=(720, 370))
 end_row, end_col = writer.insert_df2sheet(worksheet, temp.T.reset_index(), (end_row, start_col), header=False)
 
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 1}:{get_column_letter(end_col)}{end_row - 1}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 2}:{get_column_letter(end_col)}{end_row - 2}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 4}:{get_column_letter(end_col)}{end_row - 4}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 6}:{get_column_letter(end_col)}{end_row - 6}", "0.00%")
+
 # 跨时间验证集样本时间分布情况
 temp = sample_distribution(df, date="date", target="target", user_count="count", save="model_report/oot_sample_time_count.png")
 end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col), value="跨时间验证集样本时间分布情况", style="header")
 end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/oot_sample_time_count.png", (end_row, start_col), figsize=(720, 370))
 end_row, end_col = writer.insert_df2sheet(worksheet, temp.T.reset_index(), (end_row, start_col), header=False)
+
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 1}:{get_column_letter(end_col)}{end_row - 1}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 2}:{get_column_letter(end_col)}{end_row - 2}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 4}:{get_column_letter(end_col)}{end_row - 4}", "0.00%")
+writer.set_number_format(worksheet, f"{get_column_letter(start_col)}{end_row - 6}:{get_column_letter(end_col)}{end_row - 6}", "0.00%")
 
 
 # ////////////////////////////////////// 模型报告 ///////////////////////////////////// #
@@ -264,19 +284,19 @@ writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(
 # worksheet.merge_cells(f"{get_column_letter(start_col)}{end_row + 2}:{get_column_letter(start_col + len(train_report.columns) - 1)}{end_row + 2}")
 # worksheet[f"{get_column_letter(start_col)}{end_row + 2}"].style = "header"
 end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col), value="训练数据集拟合报告", style="header")
-end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/lr_ksplot_train.png", (end_row, start_col), figsize=(480, 200))
+end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/lr_ksplot_train.png", (end_row, start_col), figsize=(480, 270))
 end_row, end_col = writer.insert_df2sheet(worksheet, train_report, (end_row + 1, start_col))
 
 # worksheet.merge_cells(f"{get_column_letter(start_col)}{end_row + 2}:{get_column_letter(start_col + len(test_report.columns) - 1)}{end_row + 2}")
 # worksheet[f"{get_column_letter(start_col)}{end_row + 2}"].style = "header"
 end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col), value="测试数据集拟合报告", style="header")
-end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/lr_ksplot_test.png", (end_row, start_col), figsize=(480, 200))
+end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/lr_ksplot_test.png", (end_row, start_col), figsize=(480, 270))
 end_row, end_col = writer.insert_df2sheet(worksheet, test_report, (end_row + 1, start_col))
 
 # worksheet.merge_cells(f"{get_column_letter(start_col)}{end_row + 2}:{get_column_letter(start_col + len(oot_report.columns) - 1)}{end_row + 2}")
 # worksheet[f"{get_column_letter(start_col)}{end_row + 2}"].style = "header"
 end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col), value="跨时间验证集拟合报告", style="header")
-end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/lr_ksplot_oot.png", (end_row, start_col), figsize=(480, 200))
+end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/lr_ksplot_oot.png", (end_row, start_col), figsize=(480, 270))
 end_row, end_col = writer.insert_df2sheet(worksheet, oot_report, (end_row + 1, start_col))
 
 
@@ -317,10 +337,16 @@ for col in card.rules.keys():
     bin_plot(feature_table, feature=col, save=f"model_report/bin_plots/data_{col}.png")
     end_row, end_col = writer.insert_pic2sheet(worksheet, f"model_report/bin_plots/data_{col}.png", (end_row + 1, start_col), figsize=(700, 400))
     end_row, end_col = writer.insert_df2sheet(worksheet, feature_table, (end_row, start_col))
-    conditional_column = get_column_letter(start_col + feature_table.columns.get_loc("坏样本率"))
-    writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row - len(feature_table)}', f'{conditional_column}{end_row}')
-    conditional_column = get_column_letter(start_col + feature_table.columns.get_loc("LIFT值"))
-    writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row - len(feature_table)}', f'{conditional_column}{end_row}')
+
+    for c in ["坏样本率", "LIFT值"]:
+        conditional_column = get_column_letter(start_col + feature_table.columns.get_loc(c))
+        writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row - len(feature_table)}', f'{conditional_column}{end_row}')
+        # conditional_column = get_column_letter(start_col + feature_table.columns.get_loc("LIFT值"))
+        # writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row - len(feature_table)}', f'{conditional_column}{end_row}')
+
+    for c in ["样本占比", "好样本占比", "坏样本占比", "坏样本率", "LIFT值", "累积LIFT值"]:
+        conditional_column = get_column_letter(start_col + feature_table.columns.get_loc(c))
+        writer.set_number_format(worksheet, f"{conditional_column}{end_row - len(feature_table)}:{conditional_column}{end_row}", "0.00%")
 
 
 # ////////////////////////////////////// 评分卡说明 ///////////////////////////////////// #
@@ -373,12 +399,20 @@ end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/train_ksplot
 end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/train_scorehist.png", (ks_row, end_col))
 end_row, end_col = writer.insert_df2sheet(worksheet, train_score_rank, (end_row + 1, start_col))
 
-conditional_column = get_column_letter(start_col + train_score_rank.columns.get_loc("坏样本率"))
-writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(train_score_rank)}', f'{conditional_column}{end_row}')
-conditional_column = get_column_letter(start_col + train_score_rank.columns.get_loc("LIFT值"))
-writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(train_score_rank)}', f'{conditional_column}{end_row}')
-conditional_column = get_column_letter(start_col + train_score_rank.columns.get_loc("分档KS值"))
-writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(train_score_rank)}', f'{conditional_column}{end_row}')
+for c in ["坏样本率", "LIFT值", "分档KS值"]:
+    conditional_column = get_column_letter(start_col + train_score_rank.columns.get_loc(c))
+    writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row - len(train_score_rank)}', f'{conditional_column}{end_row}')
+
+for c in ["样本占比", "好样本占比", "坏样本占比", "坏样本率", "LIFT值", "累积LIFT值", "分档KS值"]:
+    conditional_column = get_column_letter(start_col + train_score_rank.columns.get_loc(c))
+    writer.set_number_format(worksheet, f"{conditional_column}{end_row - len(train_score_rank)}:{conditional_column}{end_row}", "0.00%")
+
+# conditional_column = get_column_letter(start_col + train_score_rank.columns.get_loc("坏样本率"))
+# writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(train_score_rank)}', f'{conditional_column}{end_row}')
+# conditional_column = get_column_letter(start_col + train_score_rank.columns.get_loc("LIFT值"))
+# writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(train_score_rank)}', f'{conditional_column}{end_row}')
+# conditional_column = get_column_letter(start_col + train_score_rank.columns.get_loc("分档KS值"))
+# writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(train_score_rank)}', f'{conditional_column}{end_row}')
 
 
 end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col), value="测试数据集评分模型效果", style="header")
@@ -387,12 +421,20 @@ end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/test_ksplot.
 end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/test_scorehist.png", (ks_row, end_col))
 end_row, end_col = writer.insert_df2sheet(worksheet, test_score_rank, (end_row + 1, start_col))
 
-conditional_column = get_column_letter(start_col + test_score_rank.columns.get_loc("坏样本率"))
-writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(test_score_rank)}', f'{conditional_column}{end_row}')
-conditional_column = get_column_letter(start_col + test_score_rank.columns.get_loc("LIFT值"))
-writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(test_score_rank)}', f'{conditional_column}{end_row}')
-conditional_column = get_column_letter(start_col + test_score_rank.columns.get_loc("分档KS值"))
-writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(test_score_rank)}', f'{conditional_column}{end_row}')
+for c in ["坏样本率", "LIFT值", "分档KS值"]:
+    conditional_column = get_column_letter(start_col + test_score_rank.columns.get_loc(c))
+    writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row - len(test_score_rank)}', f'{conditional_column}{end_row}')
+
+for c in ["样本占比", "好样本占比", "坏样本占比", "坏样本率", "LIFT值", "累积LIFT值", "分档KS值"]:
+    conditional_column = get_column_letter(start_col + test_score_rank.columns.get_loc(c))
+    writer.set_number_format(worksheet, f"{conditional_column}{end_row - len(test_score_rank)}:{conditional_column}{end_row}", "0.00%")
+
+# conditional_column = get_column_letter(start_col + test_score_rank.columns.get_loc("坏样本率"))
+# writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(test_score_rank)}', f'{conditional_column}{end_row}')
+# conditional_column = get_column_letter(start_col + test_score_rank.columns.get_loc("LIFT值"))
+# writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(test_score_rank)}', f'{conditional_column}{end_row}')
+# conditional_column = get_column_letter(start_col + test_score_rank.columns.get_loc("分档KS值"))
+# writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(test_score_rank)}', f'{conditional_column}{end_row}')
 
 
 end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col), value="跨时间验证集评分模型效果", style="header")
@@ -401,15 +443,23 @@ end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/oot_ksplot.p
 end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/oot_scorehist.png", (ks_row, end_col))
 end_row, end_col = writer.insert_df2sheet(worksheet, oot_score_rank, (end_row + 1, start_col))
 
-conditional_column = get_column_letter(start_col + oot_score_rank.columns.get_loc("坏样本率"))
-writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(oot_score_rank)}', f'{conditional_column}{end_row}')
-conditional_column = get_column_letter(start_col + oot_score_rank.columns.get_loc("LIFT值"))
-writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(oot_score_rank)}', f'{conditional_column}{end_row}')
-conditional_column = get_column_letter(start_col + oot_score_rank.columns.get_loc("分档KS值"))
-writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(oot_score_rank)}', f'{conditional_column}{end_row}')
+for c in ["坏样本率", "LIFT值", "分档KS值"]:
+    conditional_column = get_column_letter(start_col + oot_score_rank.columns.get_loc(c))
+    writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row - len(oot_score_rank)}', f'{conditional_column}{end_row}')
+
+for c in ["样本占比", "好样本占比", "坏样本占比", "坏样本率", "LIFT值", "累积LIFT值", "分档KS值"]:
+    conditional_column = get_column_letter(start_col + oot_score_rank.columns.get_loc(c))
+    writer.set_number_format(worksheet, f"{conditional_column}{end_row - len(oot_score_rank)}:{conditional_column}{end_row}", "0.00%")
+
+# conditional_column = get_column_letter(start_col + oot_score_rank.columns.get_loc("坏样本率"))
+# writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(oot_score_rank)}', f'{conditional_column}{end_row}')
+# conditional_column = get_column_letter(start_col + oot_score_rank.columns.get_loc("LIFT值"))
+# writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(oot_score_rank)}', f'{conditional_column}{end_row}')
+# conditional_column = get_column_letter(start_col + oot_score_rank.columns.get_loc("分档KS值"))
+# writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(oot_score_rank)}', f'{conditional_column}{end_row}')
 
 
-def score_psi(expected, actual, labels=["预期", "实际"], save=None, colors=['#8E8BFE', '#FEA3A2', '#FFC107'], figsize=(15, 8)):
+def score_psi(expected, actual, labels=["预期", "实际"], save=None, colors=['#8E8BFE', '#FEA3A2', '#9394E7'], figsize=(15, 8)):
     expected = expected.rename(columns={"分箱": "评分区间", "样本总数": f"{labels[0]}样本数", "样本占比": f"{labels[0]}样本占比", "坏样本率": f"{labels[0]}坏样本率"})
     actual = actual.rename(columns={"分箱": "评分区间", "样本总数": f"{labels[1]}样本数", "样本占比": f"{labels[1]}样本占比", "坏样本率": f"{labels[1]}坏样本率"})
     df_psi = expected.merge(actual, on="评分区间", how="outer").replace(np.nan, 0)
@@ -464,27 +514,39 @@ test_oot_score_psi = score_psi(test_score_rank, oot_score_rank, labels=["测试�
 
 
 end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col), value="评分卡模型稳定性评估: 训练数据集 vs 测试数据集", style="header")
-end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/train_test_psiplot.png", (end_row, start_col), figsize=(800, 400))
+end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/train_test_psiplot.png", (end_row, start_col), figsize=(1000, 400))
 end_row, end_col = writer.insert_df2sheet(worksheet, train_test_score_psi, (end_row + 1, start_col))
 
 conditional_column = get_column_letter(start_col + train_test_score_psi.columns.get_loc("分档PSI值"))
 writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(train_test_score_psi)}', f'{conditional_column}{end_row}')
 
+for c in ["训练数据集样本占比", "训练数据集坏样本率", "测试数据集样本占比", "测试数据集坏样本率"]:
+    conditional_column = get_column_letter(start_col + train_test_score_psi.columns.get_loc(c))
+    writer.set_number_format(worksheet, f"{conditional_column}{end_row - len(train_test_score_psi)}:{conditional_column}{end_row}", "0.00%")
+
 
 end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col), value="评分卡模型稳定性评估: 训练数据集 vs 跨时间验证集", style="header")
-end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/train_oot_psiplot.png", (end_row, start_col), figsize=(800, 400))
+end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/train_oot_psiplot.png", (end_row, start_col), figsize=(1000, 400))
 end_row, end_col = writer.insert_df2sheet(worksheet, train_oot_score_psi, (end_row + 1, start_col))
 
 conditional_column = get_column_letter(start_col + train_oot_score_psi.columns.get_loc("分档PSI值"))
 writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(train_oot_score_psi)}', f'{conditional_column}{end_row}')
 
+for c in ["训练数据集样本占比", "训练数据集坏样本率", "跨时间验证集样本占比", "跨时间验证集坏样本率"]:
+    conditional_column = get_column_letter(start_col + train_oot_score_psi.columns.get_loc(c))
+    writer.set_number_format(worksheet, f"{conditional_column}{end_row - len(train_oot_score_psi)}:{conditional_column}{end_row}", "0.00%")
+
 
 end_row, end_col = writer.insert_value2sheet(worksheet, (end_row + 2, start_col), value="评分卡模型稳定性评估: 测试数据集 vs 跨时间验证集", style="header")
-end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/test_oot_psiplot.png", (end_row, start_col), figsize=(800, 400))
+end_row, end_col = writer.insert_pic2sheet(worksheet, "model_report/test_oot_psiplot.png", (end_row, start_col), figsize=(1000, 400))
 end_row, end_col = writer.insert_df2sheet(worksheet, test_oot_score_psi, (end_row + 1, start_col))
 
 conditional_column = get_column_letter(start_col + test_oot_score_psi.columns.get_loc("分档PSI值"))
 writer.add_conditional_formatting(worksheet, f'{conditional_column}{end_row-len(test_oot_score_psi)}', f'{conditional_column}{end_row}')
+
+for c in ["跨时间验证集样本占比", "跨时间验证集坏样本率", "测试数据集样本占比", "测试数据集坏样本率"]:
+    conditional_column = get_column_letter(start_col + test_oot_score_psi.columns.get_loc(c))
+    writer.set_number_format(worksheet, f"{conditional_column}{end_row - len(test_oot_score_psi)}:{conditional_column}{end_row}", "0.00%")
 
 
 # ////////////////////////////////////// 模型稳定性 ///////////////////////////////////// #

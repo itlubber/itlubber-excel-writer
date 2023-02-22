@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from openpyxl.cell.cell import Cell
 from openpyxl.drawing.image import Image
 from openpyxl import load_workbook, Workbook
 from openpyxl.formatting.rule import DataBarRule
@@ -44,6 +45,19 @@ class ExcelWriter:
     @staticmethod
     def set_column_width(worksheet, column, width):
         worksheet.column_dimensions[column if isinstance(column, str) else get_column_letter(column)] = width
+
+    @staticmethod
+    def set_number_format(worksheet, space, _format):
+        cells = worksheet[space]
+        if isinstance(cells, Cell):
+            cells = [cells]
+
+        for cell in cells:
+            if isinstance(cell, tuple):
+                for c in cell:
+                    c.number_format = _format
+            else:
+                c.number_format = _format
 
     def get_sheet_by_name(self, name):
         if name not in self.workbook.sheetnames:
