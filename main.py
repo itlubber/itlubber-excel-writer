@@ -103,10 +103,6 @@ test["score"] = card.predict(test)
 oot["score"] = card.predict(oot)
 
 
-def float2percentage(x):
-    return '%.2f%%' % (x * 100);
-
-
 def sample_distribution(df, date="date", target="target", user_count="count", save="model_report/sample_time_count.png", figsize=(10, 6)):
     temp = df.groupby([df[date].dt.strftime("%Y-%m"), df[target].map({0: "好样本", 1: "坏样本"})])[user_count].sum().unstack()
     fig, ax1 = plt.subplots(1, 1, figsize=figsize)
