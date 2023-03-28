@@ -23,6 +23,15 @@ from openpyxl.styles import NamedStyle, Border, Side, Alignment, PatternFill, Fo
 class ExcelWriter:
 
     def __init__(self, style_excel='报告输出模版.xlsx', style_sheet_name="初始化", fontsize=10, font='楷体', theme_color='8E8BFE'):
+        """
+        excel 文件内容写入公共方法
+
+        :param style_excel: 样式模版文件，默认当前路径下的 报告输出模版.xlsx ，如果项目路径调整需要进行相应的调整
+        :param style_sheet_name: 模版文件内初始样式sheet名称，默认即可
+        :param fontsize: 插入excel文件中内容的字体大小，默认 10
+        :param font: 插入excel文件中内容的字体，默认 楷体
+        :param theme_color: 主题色，默认 8E8BFE，注意不包含 #
+        """
         # english_width，chinese_width
         self.english_width = 0.12
         self.chinese_width = 0.21
@@ -40,14 +49,35 @@ class ExcelWriter:
                 self.workbook.add_named_style(style)
 
     def add_conditional_formatting(self, worksheet, start_space, end_space):
+        """
+        设置条件格式
+
+        :param worksheet: 当前选择设置条件格式的sheet
+        :param start_space: 开始单元格位置
+        :param end_space: 结束单元格位置
+        """
         worksheet.conditional_formatting.add(f'{start_space}:{end_space}', DataBarRule(start_type='min', end_type='max', color=self.theme_color))
 
     @staticmethod
     def set_column_width(worksheet, column, width):
+        """
+        调整excel列宽
+
+        :param worksheet: 当前选择调整列宽的sheet
+        :param column: 列，可以直接输入 index 或者 字母
+        :param width: 设置列的宽度
+        """
         worksheet.column_dimensions[column if isinstance(column, str) else get_column_letter(column)] = width
 
     @staticmethod
     def set_number_format(worksheet, space, _format):
+        """
+        设置数值显示格式
+
+        :param worksheet: 当前选择调整数值显示格式的sheet
+        :param space: 单元格范围
+        :param _format: 显示格式，参考 openpyxl
+        """
         cells = worksheet[space]
         if isinstance(cells, Cell):
             cells = [cells]
@@ -60,6 +90,11 @@ class ExcelWriter:
                 c.number_format = _format
 
     def get_sheet_by_name(self, name):
+        """
+        获取sheet名称为name的工作簿，如果不存在，则从初始模版文件中拷贝一个名称为name的sheet
+
+        :param name: 需要获取的工作簿名称
+        """
         if name not in self.workbook.sheetnames:
             worksheet = self.workbook.copy_worksheet(self.style_sheet)
             worksheet.title = name
@@ -69,6 +104,16 @@ class ExcelWriter:
         return worksheet
 
     def insert_value2sheet(self, worksheet, insert_space, value="", style="content", auto_width=False):
+        """
+        向sheet中的某个单元格插入某种样式的内容
+
+        :param worksheet: 需要插入内容的sheet
+        :param insert_space: 内容插入的单元格位置，可以是 "B2" 或者 (2, 2) 任意一种形式
+        :param value: 需要插入的内容
+        :param style: 渲染的样式，参考 init_style 中初始设置的样式
+        :param auto_width: 是否开启自动调整列宽
+        :return 返回插入元素最后一列之后、最后一行之后的位置
+        """
         if isinstance(insert_space, str):
             worksheet[insert_space] = value
             cell = worksheet[insert_space]
@@ -88,6 +133,15 @@ class ExcelWriter:
         return start_row + 1, column_index_from_string(start_col) + 1
 
     def insert_pic2sheet(self, worksheet, fig, insert_space, figsize=(600, 250)):
+        """
+        向excel中插入图片内容
+
+        :param worksheet: 需要插入内容的sheet
+        :param fig: 需要插入的图片路径
+        :param insert_space: 插入图片的起始单元格
+        :param figsize: 图片大小设置
+        :return 返回插入元素最后一列之后、最后一行之后的位置
+        """
         if isinstance(insert_space, str):
             start_row = int(re.findall("\d+", insert_space)[0])
             start_col = re.findall('\D+', insert_space)[0]
@@ -120,6 +174,18 @@ class ExcelWriter:
                     self.insert_value2sheet(worksheet, f'{get_column_letter(curr_col + j)}{row_index}', self.astype_insertvalue(v), style=f"{style}_middle" if style else "middle", auto_width=auto_width)
 
     def insert_df2sheet(self, worksheet, data, insert_space, merge_column=None, header=True, index=False, auto_width=False):
+        """
+        向excel文件中插入制定样式的dataframe数据
+
+        :param worksheet: 需要插入内容的sheet
+        :param data: 需要插入的dataframe
+        :param insert_space: 插入内容的起始单元格位置
+        :param merge_column: 需要分组显示的列，index或者列明
+        :param header: 是否存储dataframe的header，暂不支持多级表头
+        :param index: 是否存储dataframe的index
+        :param auto_width: 是否自动调整列宽
+        :return 返回插入元素最后一列之后、最后一行之后的位置
+        """
         df = data.copy()
 
         if isinstance(insert_space, str):
@@ -297,6 +363,11 @@ class ExcelWriter:
         ])
 
     def save(self, filename):
+        """
+        保存excel文件
+
+        :param filename: 需要保存 excel 文件的路径
+        """
         self.workbook.remove(self.style_sheet)
         self.workbook.save(filename)
         self.workbook.close()
